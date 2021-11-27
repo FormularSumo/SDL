@@ -22,9 +22,9 @@ dnl Set various version strings - taken gratefully from the GTk sources
 #
 SDL_MAJOR_VERSION=2
 SDL_MINOR_VERSION=0
-SDL_MICRO_VERSION=17
+SDL_MICRO_VERSION=18
 SDL_INTERFACE_AGE=0
-SDL_BINARY_AGE=17
+SDL_BINARY_AGE=18
 SDL_VERSION=$SDL_MAJOR_VERSION.$SDL_MINOR_VERSION.$SDL_MICRO_VERSION
 
 AC_SUBST(SDL_MAJOR_VERSION)
@@ -248,8 +248,7 @@ case "$host" in
     *)
         save_LDFLAGS="$LDFLAGS"
         LDFLAGS="$LDFLAGS -Wl,--no-undefined"
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-        ]],[])], [
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])], [
         have_no_undefined=yes
         BUILD_LDFLAGS="$BUILD_LDFLAGS -Wl,--no-undefined"
         ],[])
@@ -264,8 +263,7 @@ case "$host" in
     *)
         save_LDFLAGS="$LDFLAGS"
         LDFLAGS="$LDFLAGS -Wl,--dynamicbase"
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-        ]],[])], [
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])], [
         have_dynamicbase=yes
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,--dynamicbase"
         ],[])
@@ -280,8 +278,7 @@ case "$host" in
     *)
         save_LDFLAGS="$LDFLAGS"
         LDFLAGS="$LDFLAGS -Wl,--nxcompat"
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-        ]],[])], [
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])], [
         have_nxcompat=yes
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,--nxcompat"
         ],[])
@@ -296,8 +293,7 @@ case "$host" in
     *)
         save_LDFLAGS="$LDFLAGS"
         LDFLAGS="$LDFLAGS -Wl,--high-entropy-va"
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-        ]],[])], [
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])], [
         have_high_entropy_va=yes
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,--high-entropy-va"
         ],[])
@@ -408,6 +404,7 @@ SOURCES="$SOURCES $srcdir/src/dynapi/*.c"
 SOURCES="$SOURCES $srcdir/src/events/*.c"
 SOURCES="$SOURCES $srcdir/src/file/*.c"
 SOURCES="$SOURCES $srcdir/src/haptic/*.c"
+SOURCES="$SOURCES $srcdir/src/hidapi/*.c"
 SOURCES="$SOURCES $srcdir/src/joystick/*.c"
 SOURCES="$SOURCES $srcdir/src/libm/*.c"
 SOURCES="$SOURCES $srcdir/src/misc/*.c"
@@ -480,6 +477,14 @@ if test x$enable_haptic != xyes; then
     AC_DEFINE(SDL_HAPTIC_DISABLED, 1, [ ])
 else
     SUMMARY_modules="${SUMMARY_modules} haptic"
+fi
+AC_ARG_ENABLE(hidapi,
+[AS_HELP_STRING([--enable-hidapi], [Enable the HIDAPI subsystem [default=yes]])],
+              , enable_hidapi=yes)
+if test x$enable_hidapi != xyes; then
+    AC_DEFINE(SDL_HIDAPI_DISABLED, 1, [ ])
+else
+    SUMMARY_modules="${SUMMARY_modules} hidapi"
 fi
 AC_ARG_ENABLE(sensor,
 [AS_HELP_STRING([--enable-sensor], [Enable the sensor subsystem [default=yes]])],
@@ -1530,7 +1535,7 @@ CheckWayland()
         video_wayland=no
         if  test x$video_opengl_egl = xyes && \
             test x$video_opengles_v2 = xyes; then
-            if $PKG_CONFIG --exists wayland-client wayland-scanner wayland-egl wayland-cursor egl xkbcommon ; then
+            if $PKG_CONFIG --exists wayland-client wayland-scanner wayland-egl wayland-cursor egl 'xkbcommon >= 0.5.0'; then
                 WAYLAND_CFLAGS=`$PKG_CONFIG --cflags wayland-client wayland-egl wayland-cursor xkbcommon`
                 WAYLAND_LIBS=`$PKG_CONFIG --libs wayland-client wayland-egl wayland-cursor xkbcommon`
                 WAYLAND_SCANNER=`$PKG_CONFIG --variable=wayland_scanner wayland-scanner`
@@ -1669,7 +1674,7 @@ CheckNativeClient()
 CheckRPI()
 {
     AC_ARG_ENABLE(video-rpi,
-[AS_HELP_STRING([--enable-video-rpi], [use Raspberry Pi video driver [default=yes]])],
+[AS_HELP_STRING([--enable-video-rpi], [use Raspberry Pi 2/3 video driver [default=yes]])],
                   , enable_video_rpi=yes)
     if test x$enable_video = xyes -a x$enable_video_rpi = xyes; then
         PKG_CHECK_MODULES([RPI], [bcm_host brcmegl], video_rpi=yes, video_rpi=no)
@@ -1690,11 +1695,14 @@ CheckRPI()
         # Add the Raspberry Pi compiler flags and libraries
         CFLAGS="$CFLAGS $RPI_CFLAGS"; LIBS="$LIBS $RPI_LIBS"
 
-        AC_MSG_CHECKING(for Raspberry Pi)
+        AC_MSG_CHECKING(for Raspberry Pi 2/3)
         have_video_rpi=no
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[
           #include <bcm_host.h>
+          #include <EGL/eglplatform.h>
         ]], [[
+	  EGL_DISPMANX_WINDOW_T window;
+
           bcm_host_init();
         ]])], [have_video_rpi=yes],[])
         AC_MSG_RESULT($have_video_rpi)
@@ -1748,6 +1756,7 @@ CheckX11()
                     xcursor_lib='/opt/X11/lib/libXcursor.1.dylib'
                     xinerama_lib='/opt/X11/lib/libXinerama.1.dylib'
                     xinput_lib='/opt/X11/lib/libXi.6.dylib'
+                    xfixes_lib='/opt/X11/lib/libXfixes.3.dylib'
                     xrandr_lib='/opt/X11/lib/libXrandr.2.dylib'
                     xrender_lib='/opt/X11/lib/libXrender.1.dylib'
                     xss_lib='/opt/X11/lib/libXss.1.dylib'
@@ -1759,6 +1768,7 @@ CheckX11()
                     xcursor_lib='libXcursor.so'
                     xinerama_lib='libXinerama.so'
                     xinput_lib='libXi.so'
+                    xfixes_lib='libXfixes.so'
                     xrandr_lib='libXrandr.so'
                     xrender_lib='libXrender.so'
                     xss_lib='libXss.so'
@@ -1770,6 +1780,7 @@ CheckX11()
                     xcursor_lib=[`find_lib "libXcursor.so.*" "$X_LIBS -L/usr/X11/$base_libdir -L/usr/X11R6/$base_libdir" | sed 's/.*\/\(.*\)/\1/; q'`]
                     xinerama_lib=[`find_lib "libXinerama.so.*" "$X_LIBS -L/usr/X11/$base_libdir -L/usr/X11R6/$base_libdir" | sed 's/.*\/\(.*\)/\1/; q'`]
                     xinput_lib=[`find_lib "libXi.so.*" "$X_LIBS -L/usr/X11/$base_libdir -L/usr/X11R6/$base_libdir" | sed 's/.*\/\(.*\)/\1/; q'`]
+                    xfixes_lib=[`find_lib "libXfixes.so.*" "$X_LIBS -L/usr/X11/$base_libdir -L/usr/X11R6/$base_libdir" | sed 's/.*\/\(.*\)/\1/; q'`]
                     xrandr_lib=[`find_lib "libXrandr.so.*" "$X_LIBS -L/usr/X11/$base_libdir -L/usr/X11R6/$base_libdir" | sed 's/.*\/\(.*\)/\1/; q'`]
                     xrender_lib=[`find_lib "libXrender.so.*" "$X_LIBS -L/usr/X11/$base_libdir -L/usr/X11R6/$base_libdir" | sed 's/.*\/\(.*\)/\1/; q'`]
                     xss_lib=[`find_lib "libXss.so.*" "$X_LIBS -L/usr/X11/$base_libdir -L/usr/X11R6/$base_libdir" | sed 's/.*\/\(.*\)/\1/; q'`]
@@ -1823,20 +1834,6 @@ CheckX11()
                 SUMMARY_video="${SUMMARY_video} x11"
             fi
             have_video=yes
-
-            AC_MSG_CHECKING(for const parameter to XextAddDisplay)
-            have_const_param_XextAddDisplay=no
-            AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-              #include <X11/Xlib.h>
-              #include <X11/Xproto.h>
-              #include <X11/extensions/Xext.h>
-              #include <X11/extensions/extutil.h>
-              extern XExtDisplayInfo* XextAddDisplay(XExtensionInfo* a,Display* b,_Xconst char* c,XExtensionHooks* d,int e,XPointer f);
-            ]],[])], [
-            have_const_param_XextAddDisplay=yes
-            AC_DEFINE([SDL_VIDEO_DRIVER_X11_CONST_PARAM_XEXTADDDISPLAY], 1, [ ])
-            ],[])
-            AC_MSG_RESULT($have_const_param_XextAddDisplay)
 
             dnl AC_CHECK_LIB(X11, XGetEventData, AC_DEFINE(SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS, 1, [Have XGenericEvent]))
             AC_MSG_CHECKING([for XGenericEvent])
@@ -1970,6 +1967,36 @@ XITouchClassInfo *t;
                     SUMMARY_video_x11="${SUMMARY_video_x11} xinput2_multitouch"
                     ],[])
                 AC_MSG_RESULT($have_xinput2_multitouch)
+            fi
+            AC_ARG_ENABLE(video-x11-xfixes,
+[AS_HELP_STRING([--enable-video-x11-xfixes], [enable X11 Xfixes support [default=yes]])],
+                            , enable_video_x11_xfixes=yes)
+            if test x$enable_video_x11_xfixes = xyes; then
+                definitely_enable_video_x11_xfixes=no
+                # check along with XInput2.h because we use Xfixes with XIBarrierReleasePointer
+                AC_CHECK_HEADER(X11/extensions/Xfixes.h,
+                                have_xfixes_h_hdr=yes,
+                                have_xfixes_h_hdr=no,
+                                [#include <X11/Xlib.h>
+                                 #include <X11/Xproto.h>
+                                 #include <X11/extensions/XInput2.h>])
+                if test x$have_xfixes_h_hdr = xyes; then
+                    if test x$enable_x11_shared = xyes && test x$xfixes_lib != x ; then
+                        echo "-- dynamic libXfixes -> $xfixes_lib"
+                        AC_DEFINE_UNQUOTED(SDL_VIDEO_DRIVER_X11_DYNAMIC_XFIXES, "$xfixes_lib", [ ])
+                        definitely_enable_video_x11_xfixes=yes
+                    else
+                        AC_CHECK_LIB(Xfixes, XFixesCreatePointerBarrier, have_xfixes_lib=yes)
+                        if test x$have_xfixes_lib = xyes ; then
+                            EXTRA_LDFLAGS="$EXTRA_LDFLAGS -lXfixes"
+                            definitely_enable_video_x11_xfixes=yes
+                        fi
+                    fi
+                fi
+            fi
+            if test x$definitely_enable_video_x11_xfixes = xyes; then
+                AC_DEFINE(SDL_VIDEO_DRIVER_X11_XFIXES, 1, [ ])
+                SUMMARY_video_x11="${SUMMARY_video_x11} xfixes"
             fi
             AC_ARG_ENABLE(video-x11-xrandr,
 [AS_HELP_STRING([--enable-video-x11-xrandr], [enable X11 Xrandr extension for fullscreen [default=yes]])],
@@ -2316,6 +2343,19 @@ CheckDummyVideo()
     fi
 }
 
+CheckOffscreenVideo()
+{
+    AC_ARG_ENABLE(video-offscreen,
+[AS_HELP_STRING([--enable-video-offscreen], [use offscreen video driver [default=no]])],
+                  , enable_video_offscreen=no)
+    if test x$enable_video_offscreen = xyes; then
+        AC_DEFINE(SDL_VIDEO_DRIVER_OFFSCREEN, 1, [ ])
+        SOURCES="$SOURCES $srcdir/src/video/offscreen/*.c"
+        have_video=yes
+        SUMMARY_video="${SUMMARY_video} offscreen"
+    fi
+}
+
 dnl Set up the QNX video driver if enabled
 CheckQNXVideo()
 {
@@ -2597,6 +2637,10 @@ CheckVulkan()
             # I put this in the AC_TRY_COMPILE.
             AC_MSG_WARN([Vulkan does not work on this configuration.])
         fi
+    fi
+    if test x$have_loadso != xyes; then
+        AC_MSG_WARN([Vulkan support is available, but disabled because there's no loadso.])
+        enable_video_vulkan=no
     fi
     if test x$enable_video_vulkan = xyes; then
         AC_DEFINE(SDL_VIDEO_VULKAN, 1, [ ])
@@ -3209,6 +3253,11 @@ XINPUT_STATE_EX s1;
         fi
     fi
 
+    AC_CHECK_HEADER(windows.gaming.input.h, have_wgi=yes)
+    if test x$have_wgi = xyes; then
+        AC_DEFINE(HAVE_WINDOWS_GAMING_INPUT_H, 1, [ ])
+    fi
+
     AC_CHECK_HEADER(mmdeviceapi.h, have_wasapi=yes)
     if test x$have_wasapi = xyes; then
         AC_DEFINE(HAVE_MMDEVICEAPI_H, 1, [ ])
@@ -3227,7 +3276,7 @@ dnl Check for the dlfcn.h interface for dynamically loading objects
 dnl NOTE: CheckDLOPEN is called only for relevant platforms
 CheckDLOPEN()
 {
-    AC_DEFINE(DYNAPI_NEEDS_DLOPEN,1,[])
+    AC_DEFINE(DYNAPI_NEEDS_DLOPEN, 1, [ ])
 
     AC_CHECK_HEADER(dlfcn.h,have_dlfcn_h=yes,have_dlfcn_h=no)
 
@@ -3238,9 +3287,9 @@ CheckDLOPEN()
     AC_MSG_RESULT($have_dlopen)
 
     if test x$have_dlfcn_h = xyes -a x$have_dlopen = xyes; then
-       AC_DEFINE(HAVE_DLOPEN,1,[])
+       AC_DEFINE(HAVE_DLOPEN, 1, [ ])
        if test x$enable_loadso = xyes; then
-          AC_DEFINE(SDL_LOADSO_DLOPEN,1,[])
+          AC_DEFINE(SDL_LOADSO_DLOPEN, 1, [ ])
           SOURCES="$SOURCES $srcdir/src/loadso/dlopen/*.c"
           have_loadso=yes
        fi
@@ -3384,14 +3433,14 @@ CheckUSBHID()
 dnl Check for HIDAPI joystick drivers
 CheckHIDAPI()
 {
-    AC_ARG_ENABLE(hidapi,
-[AS_HELP_STRING([--enable-hidapi], [use HIDAPI for low level joystick drivers [default=yes]])],
-                  , enable_hidapi=yes)
+    AC_ARG_ENABLE(hidapi-joystick,
+[AS_HELP_STRING([--enable-hidapi-joystick], [use HIDAPI for low level joystick drivers [default=yes]])],
+                  , enable_hidapi_joystick=yes)
     AC_ARG_ENABLE(hidapi-libusb,
 [AS_HELP_STRING([--enable-hidapi-libusb], [use libusb for low level joystick drivers [default=maybe]])],
                   , enable_hidapi_libusb=maybe)
 
-    if test x$enable_joystick = xyes -a x$enable_hidapi = xyes; then
+    if test x$enable_hidapi = xyes; then
         case "$host" in
             # libusb does not support iOS
             *-ios-* )
@@ -3417,11 +3466,6 @@ CheckHIDAPI()
         fi
 
         if test x$hidapi_support = xyes; then
-            AC_DEFINE(SDL_JOYSTICK_HIDAPI, 1, [ ])
-            EXTRA_CFLAGS="$EXTRA_CFLAGS -I$srcdir/src/hidapi/hidapi"
-            SOURCES="$SOURCES $srcdir/src/joystick/hidapi/*.c"
-            SOURCES="$SOURCES $srcdir/src/hidapi/SDL_hidapi.c"
-
             if test x$have_libusb_h = xyes; then
                 EXTRA_CFLAGS="$EXTRA_CFLAGS $LIBUSB_CFLAGS"
                 if test x$require_hidapi_libusb = xyes; then
@@ -3448,8 +3492,13 @@ CheckHIDAPI()
             fi
         fi
 
-        AC_MSG_CHECKING(for hidapi support)
+        AC_MSG_CHECKING(for hidapi joystick support)
         AC_MSG_RESULT($hidapi_support)
+    fi
+
+    if test x$enable_joystick = xyes -a x$hidapi_support = xyes -a x$enable_hidapi_joystick = xyes; then
+        AC_DEFINE(SDL_JOYSTICK_HIDAPI, 1, [ ])
+        SOURCES="$SOURCES $srcdir/src/joystick/hidapi/*.c"
     fi
 }
 
@@ -3575,6 +3624,7 @@ case "$host" in
         CheckVisibilityHidden
         CheckDeclarationAfterStatement
         CheckDummyVideo
+        CheckOffscreenVideo
         CheckDiskAudio
         CheckDummyAudio
         CheckDLOPEN
@@ -3766,7 +3816,7 @@ case "$host" in
         fi
         # Set up files for udev hotplugging support
         if test x$enable_libudev = xyes && test x$have_libudev_h_hdr = xyes; then
-            SOURCES="$SOURCES $srcdir/src/core/linux/SDL_udev.c"               
+            SOURCES="$SOURCES $srcdir/src/core/linux/SDL_udev.c"
         fi
         # Set up files for evdev input
         if test x$use_input_events = xyes; then
@@ -3795,8 +3845,12 @@ case "$host" in
                 ac_default_prefix=$BUILD_PREFIX
             fi
         fi
+        if test x$enable_loadso = xyes; then
+            have_loadso=yes
+        fi
         CheckDeclarationAfterStatement
         CheckDummyVideo
+        CheckOffscreenVideo
         CheckDiskAudio
         CheckDummyAudio
         CheckWINDOWS
@@ -3853,16 +3907,17 @@ case "$host" in
         # Set up files for the joystick library
         if test x$enable_joystick = xyes; then
             AC_DEFINE(SDL_JOYSTICK_RAWINPUT, 1, [ ])
-            if test x$have_dinput = xyes -o x$have_xinput = xyes; then
+            if test x$have_dinput = xyes -o x$have_xinput = xyes -o x$have_wgi = xyes; then
                 if test x$have_xinput = xyes; then
                     AC_DEFINE(SDL_JOYSTICK_XINPUT, 1, [ ])
+                fi
+                if test x$have_wgi = xyes; then
+                    AC_DEFINE(SDL_JOYSTICK_WGI, 1, [ ])
                 fi
                 if test x$have_dinput = xyes; then
                     AC_DEFINE(SDL_JOYSTICK_DINPUT, 1, [ ])
                     EXTRA_LDFLAGS="$EXTRA_LDFLAGS -ldinput8 -ldxguid -ldxerr8"
                 fi
-            else
-                AC_DEFINE(SDL_JOYSTICK_WINMM, 1, [ ])
             fi
             SOURCES="$SOURCES $srcdir/src/joystick/windows/*.c"
             have_joystick=yes
@@ -3919,7 +3974,6 @@ case "$host" in
         if test x$enable_loadso = xyes; then
             AC_DEFINE(SDL_LOADSO_WINDOWS, 1, [ ])
             SOURCES="$SOURCES $srcdir/src/loadso/windows/*.c"
-            have_loadso=yes
         fi
         # Set up the system libraries we need
         if test -f /lib/w32api/libuuid.a; then
@@ -3956,6 +4010,7 @@ case "$host" in
         ARCH=haiku
         ac_default_prefix=/boot/system
         CheckDummyVideo
+        CheckOffscreenVideo
         CheckDiskAudio
         CheckDummyAudio
         CheckDLOPEN
@@ -4012,6 +4067,7 @@ case "$host" in
         CheckVisibilityHidden
         CheckDeclarationAfterStatement
         CheckDummyVideo
+        CheckOffscreenVideo
         CheckDiskAudio
         CheckDummyAudio
         CheckDLOPEN
@@ -4115,6 +4171,7 @@ case "$host" in
         CheckVisibilityHidden
         CheckDeclarationAfterStatement
         CheckDummyVideo
+        CheckOffscreenVideo
         CheckDiskAudio
         CheckDummyAudio
         CheckDLOPEN
@@ -4199,6 +4256,7 @@ case "$host" in
         CheckNativeClient
         CheckDummyAudio
         CheckDummyVideo
+        CheckOffscreenVideo
         CheckInputEvents
         CheckPTHREAD
 
@@ -4233,6 +4291,7 @@ case "$host" in
         CheckVisibilityHidden
         CheckDeclarationAfterStatement
         CheckDummyVideo
+        CheckOffscreenVideo
         CheckDiskAudio
         CheckDummyAudio
         CheckPTHREAD
@@ -4275,6 +4334,7 @@ case "$host" in
         CheckVisibilityHidden
         CheckDeclarationAfterStatement
         CheckDummyVideo
+        CheckOffscreenVideo
         CheckDiskAudio
         CheckDummyAudio
         CheckDLOPEN
@@ -4285,6 +4345,19 @@ case "$host" in
         SOURCES="$SOURCES $srcdir/src/misc/riscos/*.c"
         have_misc=yes
 
+        # Set up files for the video library
+        if test x$enable_video = xyes; then
+            AC_DEFINE(SDL_VIDEO_DRIVER_RISCOS, 1, [ ])
+            SOURCES="$SOURCES $srcdir/src/video/riscos/*.c"
+            have_video=yes
+            SUMMARY_video="${SUMMARY_video} riscos"
+        fi
+        # Set up files for the filesystem library
+        if test x$enable_filesystem = xyes; then
+            AC_DEFINE(SDL_FILESYSTEM_RISCOS, 1, [ ])
+            SOURCES="$SOURCES $srcdir/src/filesystem/riscos/*.c"
+            have_filesystem=yes
+        fi
         # Set up files for the timer library
         if test x$enable_timers = xyes; then
             AC_DEFINE(SDL_TIMER_UNIX, 1, [ ])
@@ -4440,8 +4513,7 @@ if test "x$enable_rpath" = "xyes" -a "x$enable_shared" = "xyes"; then
     have_enable_new_dtags=no
     save_LDFLAGS="$LDFLAGS"
     LDFLAGS="$LDFLAGS -Wl,--enable-new-dtags"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-    ]],[])], [
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([],[])], [
     have_enable_new_dtags=yes
     SDL_RLD_FLAGS="$SDL_RLD_FLAGS -Wl,--enable-new-dtags"
     ],[])

@@ -168,6 +168,14 @@ static void AddController(int device_index, SDL_bool verbose)
         SDL_GameControllerSetSensorEnabled(gamecontroller, SDL_SENSOR_GYRO, SDL_TRUE);
     }
 
+    if (SDL_GameControllerHasRumble(gamecontroller)) {
+        SDL_Log("Rumble supported");
+    }
+
+    if (SDL_GameControllerHasRumbleTriggers(gamecontroller)) {
+        SDL_Log("Trigger rumble supported");
+    }
+
     UpdateWindowTitle();
 }
 
@@ -236,12 +244,12 @@ LoadTexture(SDL_Renderer *renderer, const char *file, SDL_bool transparent)
     return texture;
 }
 
-static Uint16 ConvertAxisToRumble(Sint16 axis)
+static Uint16 ConvertAxisToRumble(Sint16 axisval)
 {
     /* Only start rumbling if the axis is past the halfway point */
     const Sint16 half_axis = (Sint16)SDL_ceil(SDL_JOYSTICK_AXIS_MAX / 2.0f);
-    if (axis > half_axis) {
-        return (Uint16)(axis - half_axis) * 4;
+    if (axisval > half_axis) {
+        return (Uint16)(axisval - half_axis) * 4;
     } else {
         return 0;
     }
@@ -386,7 +394,7 @@ loop(void *arg)
             if (event.key.keysym.sym != SDLK_ESCAPE) {
                 break;
             }
-            /* Fall through to signal quit */
+            SDL_FALLTHROUGH;
         case SDL_QUIT:
             done = SDL_TRUE;
             break;
@@ -531,7 +539,7 @@ main(int argc, char *argv[])
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't initialize SDL: %s\n", SDL_GetError());
         return 1;
     }
-    
+
     SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 
     /* Print information about the mappings */

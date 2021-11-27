@@ -322,7 +322,7 @@ SetXRandRDisplayName(Display *dpy, Atom EDID, char *name, const size_t namelen, 
                     dump_monitor_info(info);
 #endif
                     SDL_strlcpy(name, info->dsc_product_name, namelen);
-                    free(info);
+                    SDL_free(info);
                 }
                 X11_XFree(prop);
             }
@@ -358,7 +358,7 @@ GetXftDPI(Display* dpy)
     }
 
     /*
-     * It's possible for SDL_atoi to call strtol, if it fails due to a
+     * It's possible for SDL_atoi to call SDL_strtol, if it fails due to a
      * overflow or an underflow, it will return LONG_MAX or LONG_MIN and set
      * errno to ERANGE. So we need to check for this so we dont get crazy dpi
      * values
@@ -849,6 +849,16 @@ X11_InitModes(_THIS)
     if (_this->num_displays == 0) {
         return SDL_SetError("No available displays");
     }
+
+#if SDL_VIDEO_DRIVER_X11_XVIDMODE
+    if (use_vidmode) {  /* we intend to remove support for XVidMode soon. */
+        SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO, "SDL is using XVidMode to manage your displays!");
+        SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO, "This almost always means either SDL was misbuilt");
+        SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO, "or your X server is insufficient. Please check your setup!");
+        SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO, "Fullscreen and/or multiple displays will not work well.");
+    }
+#endif
+
     return 0;
 }
 

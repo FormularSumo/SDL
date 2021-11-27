@@ -738,6 +738,9 @@ hotplug_loop_destroy()
     pending_list_clear();
     io_list_clear();
 
+    SDL_AtomicSet(&hotplug_init_complete, 0);
+    SDL_AtomicSet(&hotplug_events_enabled, 0);
+
     if (hotplug_registry) {
         PIPEWIRE_pw_proxy_destroy((struct pw_proxy *)hotplug_registry);
     }
@@ -1040,7 +1043,10 @@ PIPEWIRE_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
     /* Get the hints for the application name, stream name and role */
     app_name = SDL_GetHint(SDL_HINT_AUDIO_DEVICE_APP_NAME);
     if (!app_name || *app_name == '\0') {
-        app_name = "SDL Application";
+        app_name = SDL_GetHint(SDL_HINT_APP_NAME);
+        if (!app_name || *app_name == '\0') {   
+            app_name = "SDL Application";
+        }
     }
 
     stream_name = SDL_GetHint(SDL_HINT_AUDIO_DEVICE_STREAM_NAME);
